@@ -1,0 +1,61 @@
+#!/bin/bash -e
+
+# Filename: rmrf
+# Purpose:  A safe way to run rm -rf
+# Author:   Lex Sheehan
+# License:  MIT
+
+USAGE="Usage: $(basename $0) <ROOT_DIR_TO_REMOVE> [--force]"
+ROOT_DIR_TO_REMOVE=${1%/}
+DOT_DOT=".."
+CUR_DIR=$(pwd)
+
+[ "$ROOT_DIR_TO_REMOVE" == "" ] && echo $USAGE && exit 2
+
+if [ "$ROOT_DIR_TO_REMOVE" == "/" ]; then
+   echo "WTF? Did you just try to delete all the files on the system?"
+   echo $USAGE
+   exit 3
+fi
+
+if [ "$CUR_DIR" == "/" ] && [ "$ROOT_DIR_TO_REMOVE" == "." ]; then
+   echo "WTF? Did you just try to delete all the files on the system?"
+   echo $USAGE
+   exit 3
+fi
+
+if [ ${ROOT_DIR_TO_REMOVE:0:1} == "/" ]; then
+    echo "Do you really want to delete all the files starting at $ROOT_DIR_TO_REMOVE (yes/no)?"
+    read x && x=${x:-no}
+    [ "$x" != "yes" ] && echo "WARNING: Since you didn't type 'yes' nothing happened." && exit 3
+fi
+
+if [ "$ROOT_DIR_TO_REMOVE" == "$HOME" ]; then
+   if [ "$2" == "" ] || [ ! $2 == "--force" ]; then      
+      echo "WTF? Did you just try to delete all the files in your home directory?"
+      echo "If so, retry with and add --force to force it through"
+      echo $USAGE
+      exit 3
+   fi
+fi
+
+if [ ! "${ROOT_DIR_TO_REMOVE/$DOT_DOT}" == "$ROOT_DIR_TO_REMOVE" ] ; then
+   echo 'WTF? ".." not permitted in directory path to delete!'
+   echo $USAGE
+   exit 3
+fi
+
+if [ "$x" != "yes" ]; then
+	echo "Do you really want to delete all files under the ($ROOT_DIR_TO_REMOVE) directory (yes/no)?"
+	read x && x=${x:-no}
+	if [ "$x" != "yes" ]; then
+	    echo "WARNING: Since you didn't type 'yes' nothing happened."
+	    exit 3
+	fi
+fi
+
+set -x
+rm -rf $ROOT_DIR_TO_REMOVE
+{ set +x; } > /dev/null
+
+[ "$?" != "0" ] && echo "ERROR: return code: $?"
