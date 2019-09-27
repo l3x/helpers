@@ -1,0 +1,9 @@
+source 'https://rubygems.org'
+
+# gem 'rubygems'
+# gem 'bundler/setup'
+# gem 'minitest/autorun'
+# gem 'minitest/hell'
+# gem 'httpparty'
+gem 'minitest'
+gem 'httparty'
