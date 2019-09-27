@@ -1,6 +1,8 @@
 # Test Paths
 
-This Ruby script will test the protocols for the paths for the domains specified in the .txt files.
+This Ruby script will test the **protocols** for the **paths** for the **domains** specified in the .txt files.
+
+In this example, this script verifies that domains have the paths and that they all respond to both http and https.
 
 ## Install and Configure
 
