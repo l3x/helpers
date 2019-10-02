@@ -80,6 +80,8 @@ Finished in 1.939989s, 0.5155 runs/s, 6.1856 assertions/s.
 1 runs, 12 assertions, 0 failures, 0 errors, 0 skips
 ```
 
+
+
 ## info-github-labels
 
 ```bash
@@ -138,6 +140,8 @@ While TBD enables instant, continuous integration, however TBD:
 * Leads to excessive use of feature toggles, which leads to code complexity
 * Circumvents that PR code review process
 * Requires an exhaustive suite of tests that are run prior to merging changes to master
+
+TBD fosters more of a "get it out now" rather than a "quality control" mentality.
 
 DevOps tends to like TDB better than Product Owners, Stakeholders, Architects and Developers.
 
