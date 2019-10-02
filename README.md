@@ -91,7 +91,7 @@ Finished in 1.939989s, 0.5155 runs/s, 6.1856 assertions/s.
 Typical github branch labels:
 
 * feature: Adding functionality? (may include tests, fixes, docs, etc.)
-* fix    : Fixing bugs or refactoring
+* fix    : Fixing bugs. In production use 'hotfix'
 * nfr    : Functional Requirement, e.g., configuration
 * test   : Adding tests, e.g. unit tests, performance tests, etc.
 * docs   : Documentation, which may include design and/or install/config documention
