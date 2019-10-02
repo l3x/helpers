@@ -20,6 +20,7 @@ Typical github branch labels:
 Examples:
 feature/add-get-customer-details-use-case
 fix/use-correct-exchange-rates
+hotfix/change-from-http-to-https
 nfr/update-gemfile
 test/add-perf-tests-for-fund-distribution
 docs/add-wallet-use-cases
