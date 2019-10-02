@@ -1,0 +1,32 @@
+#!/bin/bash -e
+
+# Filename: info-github-labels
+# Purpose:  Info about how to label your git branches
+# Author:   Lex Sheehan
+# License:  MIT
+
+# https://gist.github.com/stephenparish/9941e89d80e2bc58a153#generating-changelogmd
+
+msg="
+Typical github branch labels:
+
+* feature: Adding functionality? (may include tests, fixes, docs, etc.)
+* fix    : Fixing bugs or refactoring
+* nfr    : Functional Requirement, e.g., configuration
+* test   : Adding tests, e.g. unit tests, performance tests, etc.
+* docs   : Documentation, which may include design and/or install/config documention
+* explore: An exploratory branch, which might get converted to a feature branch
+
+Examples:
+feature/add-get-customer-details-use-case
+fix/use-correct-exchange-rates
+nfr/update-gemfile
+test/add-perf-tests-for-fund-distribution
+docs/add-wallet-use-cases
+explore/try-acme-external-service
+
+Use Tags to:
+* Tag a commit with verison #. Ex: git tag -a v1.2.0 -m'v1.2.0 - Added Admin GUI' 9fceb02
+* Tag steps in build pipeline. Ex: git tag -a step-03 -m'step 03 - After data migration'
+"
+echo "$msg"
