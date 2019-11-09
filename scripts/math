@@ -1,0 +1,25 @@
+#!/bin/bash -e
+
+# Filename: math
+# Purpose:  Perform simple math operations
+# Author:   Lex Sheehan
+# License:  MIT
+
+# Notes:
+# bc always returns a 0 return code
+# expr will return 2 if there is a runtime error!
+
+EXPR=$1
+SCALE=$2
+MY_NAME=$(basename $0)
+if [ "$EXPR" == "" ]; then
+	echo "Usage:  $MY_NAME <EXPR>"
+	echo "Ex:     $MY_NAME \"16542 / 60 / 60\""
+    echo "        $MY_NAME 16542 / 60 / 60"
+	echo "Try again."
+	exit 1
+fi
+if [ "$SCALE" != "" ]; then
+	SCALE="scale=$SCALE"
+fi
+echo `bc -l <<< "$SCALE; $EXPR"`

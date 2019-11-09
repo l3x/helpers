@@ -146,3 +146,43 @@ TBD fosters more of a "get it out now" rather than a "quality control" mentality
 
 DevOps tends to like TDB better than Product Owners, Stakeholders, Architects and Developers.
 
+
+
+## math
+
+Evaluate simple math expressions on the command line.
+
+Parenthesis are not supported, but you can use `$(expression)`with operators (+, -, *, /).
+
+### Examples
+
+80 laps in a Jr. Olympic swimming pool is a mile.
+
+2.5 miles is 200 laps.  (2 miles + 1/2 mile.)
+
+```bash
+$ math 80*2
+160
+
+$ math 80*2+$(math 80/2)
+200.00000000000000000000
+```
+
+
+
+## run-ruby-code
+
+Evaluate ruby code from the terminal.
+
+### Examples
+
+If I plan to swim 1 lap, then 2 laps, then 3 laps.. (and back down)... 3 laps, 2 laps, 1 lap.... 
+
+How many laps in my largest set if I want to swim at least 2.5 miles?
+
+```bash
+$ run-ruby-code "s=0;(1..14).each{|i| s+=i};puts s*2"
+210
+```
+
+

@@ -1,0 +1,25 @@
+#!/bin/bash -e
+
+# Filename: run-ruby-code
+# Purpose:  Run Ruby code from the command line
+# Author:   Lex Sheehan
+# License:  MIT
+
+# Example
+# $ math "$(run-ruby-code "s=0;(1..14).each{|i| s+=i};puts s*2")"
+# 210
+
+
+RUBY_CODE="$1"
+[ "$RUBY_CODE" == "" ] && echo "Usage: $(basename $0) <RUBY_CODE>" && exit 2 
+
+f="$(mktemp).rb"
+
+echo "#/usr/bin/env ruby" > $f
+
+#echo "s=0;(1..13).each{|i| s+=i};puts s*2" >> $f
+echo "$RUBY_CODE" >> $f
+
+chmod +x $f
+
+ruby $f
