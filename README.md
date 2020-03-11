@@ -186,3 +186,29 @@ $ run-ruby-code "s=0;(1..14).each{|i| s+=i};puts s*2"
 ```
 
 
+
+
+## find-lastest
+
+Find the most recently updated file in a directory.
+
+Return most recently updated filename if no DIR passed, else full path.
+
+Recurses the directory unless you pass the -maxdepth argument.
+
+### Examples
+
+Return file name only for current directory if no DIR passed.
+
+```bash
+~/Downloads $ find-latest
+goland-2019.3.3.tar.gz
+```
+
+Return file name only for current directory if no DIR passed.
+
+```bash
+~ $ find-latest ~/Downloads/
+/home/lex/Downloads/goland-2019.3.3.tar.gz
+```
+

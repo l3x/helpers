@@ -1,0 +1,25 @@
+#!/bin/bash -e
+
+# Filename: find-latest
+# Purpose:  Return most recently updated filename if no DIR passed, else full path
+# Author:   Lex Sheehan
+# License:  MIT
+# Notes:    Recurses the directory unless you pass the -maxdepth argument
+
+# Examples: 
+# find-latest
+# find-latest ~/Downloads
+# find-latest ~/Downloads -maxdepth 1
+
+DIR="$1"
+if [ "$DIR" == "" ]; then
+	DIR='.'
+fi
+shift 1
+
+latest_file=$(find $DIR $@ -type f -printf '%T+ %p\n' | sort -r | head -n 1 | cut -d' ' -f2)
+if [ "${latest_file:0:2}" == "./" ]; then
+	latest_file="${latest_file:2}"
+fi
+echo "${latest_file}"
+
