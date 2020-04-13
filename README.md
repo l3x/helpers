@@ -187,7 +187,6 @@ $ run-ruby-code "s=0;(1..14).each{|i| s+=i};puts s*2"
 
 
 
-
 ## find-lastest
 
 Find the most recently updated file in a directory.
@@ -212,3 +211,143 @@ Return file name only for current directory if no DIR passed.
 /home/lex/Downloads/goland-2019.3.3.tar.gz
 ```
 
+
+
+## build-and-load-gem-groups
+
+This script allows you to bundle gems for your application based on groups in your Gemfile. (That's the "build" portion of this script.)
+
+This script also allows you to test your rails environments based on RAILS_GROUPS. (That's the "load-gem-groups" portion).
+
+This script can work with the default Bundler configuration for a generated Rails app in the **config/application.rb** file:
+
+```ruby
+if defined?(Bundler)
+  # If you precompile assets before deploying to production, use this line
+  Bundler.require(*Rails.groups(:assets => %w(development test)))
+  # If you want your assets lazily compiled in production, use this line
+  # Bundler.require(:default, :assets, Rails.env)
+end
+```
+
+``` 
+Usage: build-and-load-gem-groups [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r]
+
+Options:
+	-i or --include:		[Optional] groups to include in build and load
+	-e or --exclude:		[Optional] groups to exclude in build and load
+	-a or --all-groups:		[Optional] include all groups in build and load
+	-d or --display-groups:	[Optional] display all groups in Gemfile
+	-r or --reset           [Optional] resets bundler and gemfile settings
+	-l or --load-path       [Optional] display Ruby load path
+
+Examples:
+build-and-load-gem-groups -i 
+build-and-load-gem-groups -i assets
+build-and-load-gem-groups -e production ci deploy
+SKIP_BUILD=true build-and-load-gem-groups -i development
+SKIP_LOAD=true build-and-load-gem-groups -i production
+LOAD_ENV_PATH=./scripts/load-env.rb  build-and-load-gem-groups -i development
+
+Notes:
+* A better, albeit longer name of this script: 'build_and_time_the_loading_of_gem_groups'
+* - If group passed 'test' then 'rake rspec' will be run otherwise run load_environment.rb.
+* In practice, you should set the RAILS_GROUPS before you run your Ruby code. [Optional] 
+* Set env var SKIP_BUILD=true to skip the build portion of this script. [Optional] 
+* Set env var SKIP_LOAD=true to skip the load portion of this script. [Optional] 
+* Set env var LOAD_ENV_PATH='path to where load_environment.rb path. [Optional] 
+* Run 'bundle info <GEM_NAME>' for info about installed gem. Ex: $ bundle info json
+* Running $ build-and-load-gem-groups -i assets  fails to load the rails environment as expected 
+    because will likely be missing gems required to load a full rails environment.
+* Running $ build-and-load-gem-groups -i development  when RAILS_ENV=production may fail with:
+  'cannot load such file -- uglifier'  
+  'cannot load such file -- scruffy'  
+  'cannot load such file -- newrelic_rpm'
+  That is expected. In order to build a development package in production you must run:
+  $ build-and-load-gem-groups -i development app assets production
+* Just because you can do something, does not mean you _should_ do it.
+```
+
+### Examples
+
+#### Generic use of bundle command
+
+When running `bundle install` it takes ***25.025s** to load the Rails environment.
+
+```bash
+$ export RAILS_ENV=development && build-and-load-gem-groups -r && bundle install && build-and-load-gem-groups -t
+The git source https://github.com/sr/shout-bot.git is not yet checked out. Please run `bundle install` before trying to start your application
+Fetching https://github.com/RepoName/example_elastic
+Fetching https://github.com/RepoName/notification-dispatch
+Fetching https://github.com/rails/prototype_legacy_helper
+. . .
+Resolving dependencies...........................
+RubyGems 1.8.23.2 is not threadsafe, so your gems will be installed one at a time. Upgrade to RubyGems 2.1.0 or higher to enable parallel gem installation.
+Using rake 0.9.6
+Using 12_hour_time 0.0.4
+Using Ascii85 1.0.3
+. . .
+Using verhoeff 2.1.0
+Using will_paginate 3.2.1
+Using xml-simple 1.1.5
+Bundle complete! 128 Gemfile dependencies, 209 gems now installed.
+Gems in the groups Missing, Gemfile!, gui and deploy were not installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+Loading Rails environment...
+boot.rb - Rails 3.2
+/home/lex/.rbenv/versions/1.9.3-p551/lib/ruby/gems/1.9.1/gems/json_pure-1.4.6/lib/json/common.rb:2:in `<top (required)>': iconv will be deprecated in the future, use String#encode instead.
+/home/lex/.rbenv/versions/1.9.3-p551/lib/ruby/gems/1.9.1/gems/12_hour_time-0.0.4/lib/12_hour_time/action_view_helpers.rb:3: warning: already initialized constant POSITION
+DEPRECATION WARNING: The factory_girl gem is deprecated. Please upgrade to factory_bot. See https://github.com/thoughtbot/factory_bot/blob/v4.9.0/UPGRADE_FROM_FACTORY_GIRL.md for further instructions. (called from <top (required)> at /home/lex/Clients/Example/dev/example_22379_startup/config/application.rb:7)
+Please configure your rails_lts_options using config.rails_lts_options inside Rails::Initializer.run. Defaulting to "rails_lts_options = { :default => :compatible }". See https://makandracards.com/railslts/16311-configuring-rails-lts for documentation.
+DEPRECATION WARNING:
+Sass 3.5 will no longer support Ruby 1.9.3.
+Please upgrade to Ruby 2.0.0 or greater as soon as possible.
+
+Rails.groups: [:default, "development"]
+
+real	0m25.025s
+user	0m23.368s
+sys	0m1.077s
+
+```
+
+#### Use script to bundle gems and RAILS_GROUP when loading enviornment
+
+When running `build-and-load-gem-groups -i` it takes **17.326s** to load the Rails enviroment.
+
+That's a 30% improvement in performance.
+
+```bash
+$ export RAILS_ENV=development && build-and-load-gem-groups -r && build-and-load-gem-groups -i 
+INCLUDES: development
+EXCLUDES: app assets ci deploy test
+>> Build groups_to_exclude=app assets ci deploy test
+The git source https://github.com/sr/shout-bot.git is not yet checked out. Please run `bundle install` before trying to start your application
+Fetching https://github.com/RepoName/example_elastic
+Fetching https://github.com/RepoName/notification-dispatch
+Fetching https://github.com/rails/prototype_legacy_helper
+. . .
+Using uuid 2.3.9
+Using will_paginate 3.2.1
+Using xml-simple 1.1.5
+Bundle complete! 128 Gemfile dependencies, 160 gems now installed.
+Gems in the groups app, assets, ci, deploy, test, Missing, Gemfile! and gui were not installed.
+Use `bundle info [gemname]` to see where a bundled gem is installed.
+SKIP_BUILD: 
+SKIP_LOAD: 
+
+--------------------------------------------------------
+ RAILS_GROUPS=development
+--------------------------------------------------------
+Loading Rails environment...
+boot.rb - Rails 3.2
+/home/lex/.rbenv/versions/1.9.3-p551/lib/ruby/gems/1.9.1/gems/json_pure-1.4.6/lib/json/common.rb:2:in `<top (required)>': iconv will be deprecated in the future, use String#encode instead.
+/home/lex/.rbenv/versions/1.9.3-p551/lib/ruby/gems/1.9.1/gems/12_hour_time-0.0.4/lib/12_hour_time/action_view_helpers.rb:3: warning: already initialized constant POSITION
+DEPRECATION WARNING: The factory_girl gem is deprecated. Please upgrade to factory_bot. See https://github.com/thoughtbot/factory_bot/blob/v4.9.0/UPGRADE_FROM_FACTORY_GIRL.md for further instructions. (called from <top (required)> at /home/lex/Clients/Example/dev/example_22379_startup/config/application.rb:7)
+Please configure your rails_lts_options using config.rails_lts_options inside Rails::Initializer.run. Defaulting to "rails_lts_options = { :default => :compatible }". See https://makandracards.com/railslts/16311-configuring-rails-lts for documentation.
+Rails.groups: [:default, "development"]
+
+real	0m17.326s
+user	0m16.309s
+sys	0m0.947s
+```

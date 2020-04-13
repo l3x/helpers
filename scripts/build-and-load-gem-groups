@@ -1,0 +1,291 @@
+#!/bin/bash -e
+
+# Filename: build-and-load-gem-groups
+# Purpose:  Install gems based on groups in your Gemfile; Load gems based on those groups. 
+# Author:   Lex Sheehan
+# License:  MIT
+
+RAILS_ENV="$(if [ "$RAILS_ENV" != "" ]; then echo $RAILS_ENV; else echo 'development'; fi)"
+LOAD_ENV_PATH="$(if [ "$LOAD_ENV_PATH" != "" ]; then echo $LOAD_ENV_PATH; else echo './script/load_environment.rb'; fi)"
+
+Usage() 
+{
+	info="
+Usage: $(basename $0) [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r] | [-t]
+
+Options:
+	-i or --include:		[Optional] groups to include in build and load
+	-e or --exclude:		[Optional] groups to exclude in build and load
+	-a or --all-groups:		[Optional] include all groups in build and load
+	-d or --display-groups:	[Optional] display all groups in Gemfile
+	-l or --load-path       [Optional] display Ruby load path
+	-r or --reset           [Optional] resets bundler and gemfile settings
+	-t or --test-load-time  [Optional] display how long it takes to load
+
+Examples:
+$(basename $0) -i 
+$(basename $0) -i assets
+$(basename $0) -e production ci deploy
+SKIP_BUILD=true $(basename $0) -i development
+SKIP_LOAD=true $(basename $0) -i production
+LOAD_ENV_PATH=./scripts/load-env.rb  $(basename $0) -i development
+
+Notes:
+* A better, albeit longer name of this script: 'build_and_time_the_loading_of_gem_groups'
+* - If group passed 'test' then 'rake rspec' will be run otherwise run load_environment.rb.
+* In practice, you should set the RAILS_GROUPS before you run your Ruby code. [Optional] 
+* Set env var SKIP_BUILD=true to skip the build portion of this script. [Optional] 
+* Set env var SKIP_LOAD=true to skip the load portion of this script. [Optional] 
+* Set env var LOAD_ENV_PATH='path to where load_environment.rb path. [Optional] 
+* Run 'bundle info <GEM_NAME>' for info about installed gem. Ex: $ bundle info json
+* Running $ $(basename $0) -i assets  fails to load the rails environment as expected 
+    because will likely be missing gems required to load a full rails environment.
+* Running $ $(basename $0) -i development  when RAILS_ENV=production may fail with:
+  'cannot load such file -- uglifier'  
+  'cannot load such file -- scruffy'  
+  'cannot load such file -- newrelic_rpm'
+  That is expected. In order to build a development package in production you must run:
+  $ build-and-load-gem-groups -i development app assets production
+* Just because you can do something, does not mean you _should_ do it.
+
+Current environment variable settings:
+SKIP_BUILD=$SKIP_BUILD
+SKIP_LOAD=$SKIP_LOAD
+LOAD_ENV_PATH=$LOAD_ENV_PATH
+RAILS_ENV=$RAILS_ENV
+"
+	echo "$info"
+	exit 2
+}	
+
+restore_opts() 
+{
+	case $- in
+	  *e*) OLDOPTS="$OLDOPTS; set -e";;
+	  *) OLDOPTS="$OLDOPTS; set +e";;
+	esac
+}
+include_param_passed=false
+parse_arguments() 
+{
+	if [ "${DEBUG}" == "true" ]; then
+		echo "++ $(basename $0) $@"
+	fi
+	
+	while [ $# -gt 0 ]; do
+		case $1 in
+			--help | -h)
+				HELPINFO=true;;
+			--include | -i)
+				include_param_passed=true
+                shift || true
+				INCLUDES="$@";;
+			--exclude | -e)
+                shift
+				EXCLUDES="$@";;
+			--all-groups | -a)
+				INCLUDE_ALL_GROUPS=true;;
+			--display_all_groups | -d)
+				DISPLAY_ALL_GROUPS=true;;
+			--load-path | -l)
+				LOAD_PATH=true;;
+			--reset | -r)
+				RESET_ALL=true;;
+			--test-load-time | -t)
+				TEST_LOAD_TIME=true;;
+		esac
+		shift || true
+	done
+}
+# Set default values; leave empty if you want user to specify its value.
+parse_arguments $@
+
+if [ "${INCLUDES}" == "" ] && \
+	[ "${EXCLUDES}" == "" ] && \
+	[ "${INCLUDE_ALL_GROUPS}" == "" ] && \
+	[ "${DISPLAY_ALL_GROUPS}" == "" ] && \
+	[ "${LOAD_PATH}" == "" ] && \
+	[ "${RESET_ALL}" == "" ] && \
+	[ "${TEST_LOAD_TIME}" == "" ] && \
+	[ "${HELPINFO}" == "" ] && \
+	[ "${include_param_passed}" == false ]
+then
+	echo "You must pass either group names you want to include --OR-- group names you want to exclude."
+	Usage
+fi
+
+if [ "${INCLUDES}" != "" ] && [ "${EXCLUDES}" != "" ]; then
+	echo "You must pass either group names you want to include --OR-- group names you want to exclude , but not both."
+	Usage
+fi
+
+if [ "${HELPINFO}" == "true" ]; then
+    Usage
+fi
+
+ALL_GROUPS= #'app assets ci deploy development gui test' # Set to bypass group lookup in Gemfile
+
+function clear_bundle_groups()
+{
+	[ ! -e ./.bundle/config ] || rm ./.bundle/config || true
+}
+
+function delete_gemfile_lock()
+{
+	[ -e ./Gemfile.lock ] && rm ./Gemfile.lock || true
+}
+
+function reset_all()
+{
+	bundle clean --force || true
+	clear_bundle_groups
+	delete_gemfile_lock
+}
+
+function all_groups()
+{
+	if [ ! -e Gemfile ]; then
+		echo 'Missing Gemfile!'
+	else
+		if [ "$ALL_GROUPS" != '' ]; then
+			echo "$ALL_GROUPS" | tr ' ' '\n'
+		else
+			grep -E '^group ' Gemfile | cut -c8-555 | tr ':' ' ' | while read line; do   echo "${line/ do/}"; done | tr ',' '\n' | while read line; do echo "${line}"; done | sort | uniq
+		fi
+	fi	
+}
+
+function all_except_group()
+{
+	all_except="$1"
+	non_excluded_groups=''
+	while read line 
+	do
+		exclude=false
+		while read exlude_group 
+		do
+			if [ "$line" == "$exlude_group" ]; then
+				exclude=true
+			fi 
+		done  < <(echo "$all_except" | tr ' ' '\n')
+		if [ "$exclude" != "true" ]; then
+			exclude=false			
+			non_excluded_groups="$([ "$non_excluded_groups" == "" ] || echo "${non_excluded_groups} ")$line"
+		fi
+	done < <(echo "$(all_groups)")
+	echo "$non_excluded_groups"
+}
+
+function run_load_env_script()
+{
+	echo 'Loading Rails environment...'
+	if [ -f $LOAD_ENV_PATH ]; then
+		$LOAD_ENV_PATH
+	else
+		load_env_script_path=$(mktemp)
+		echo "#!/usr/bin/env ruby
+require File.expand_path('$(pwd)/config/environment.rb',  __FILE__)
+puts \"Rails.groups: #{Rails.groups}\"
+" > $load_env_script_path
+		chmod +x $load_env_script_path
+		echo "Created $load_env_script_path"
+		$load_env_script_path
+	fi
+}
+
+function load_path()
+{
+		load_path_script_path=$(mktemp)
+		echo "#!/usr/bin/env ruby
+require File.expand_path('$(pwd)/config/environment.rb',  __FILE__)
+puts \"$LOAD_PATH\"
+" > $load_path_script_path
+		chmod +x $load_path_script_path
+		echo "Created $load_path_script_path"
+		$load_path_script_path
+
+}
+
+# BUILD
+function build_all()
+{
+	if [ "$SKIP_BUILD" != "true" ]; then
+		echo ">> Build All"
+		reset_all
+		bundle install
+	fi
+}
+
+function build_without()
+{
+	if [ "$SKIP_BUILD" != "true" ]; then
+		groups_to_exclude="$1"
+		echo ">> Build groups_to_exclude=$groups_to_exclude"
+		reset_all
+		if [ "$groups_to_exclude" == "" ]; then
+			bundle install
+		else
+			bundle install --without $groups_to_exclude
+		fi
+	fi
+}
+
+# Shows load times. In practice, set the RAILS_GROUPS before you run your Ruby code.
+function load_rails_with_groups() 
+{
+	export RAILS_GROUPS=$(echo "$1" | tr ' ' ',')
+	echo ''
+	echo '--------------------------------------------------------'
+	echo " RAILS_GROUPS=$RAILS_GROUPS"
+	echo '--------------------------------------------------------'
+	if [[ "$RAILS_GROUPS" == *"test"* ]]; then
+		time bundle exec rake environment
+	else
+		time run_load_env_script
+	fi
+}
+
+function test_load_time()
+{
+	if [ "RAILS_ENV" == "test" ]; then
+		time bundle exec rake environment
+	else
+		time run_load_env_script
+	fi
+}
+
+# MAIN
+
+unset BUNDLE_INCLUDES
+if [ "$DISPLAY_ALL_GROUPS" == true ]; then
+	all_groups
+elif [ "$LOAD_PATH" == true ]; then
+	load_path
+elif [ "$RESET_ALL" == true ]; then
+	reset_all
+elif [ "$TEST_LOAD_TIME" == true ]; then
+	test_load_time
+else
+	# Build
+	if [ "$INCLUDE_ALL_GROUPS" == true ]; then
+		INCLUDES=$(all_groups | tr '\n' ' ')
+		echo "INCLUDES: $INCLUDES"
+		build_all
+	else
+		if [ "$EXCLUDES" != "" ]; then
+			INCLUDES=$(all_except_group "$EXCLUDES")
+		else
+			if [ "$INCLUDES" == "" ] && [ "$include_param_passed" == true ]; then
+				INCLUDES=$RAILS_ENV
+			fi
+			EXCLUDES=$(all_except_group "$INCLUDES")
+		fi
+		echo "INCLUDES: $INCLUDES"
+		echo "EXCLUDES: $EXCLUDES"
+		build_without "$EXCLUDES"
+	fi
+	# Load
+	echo "SKIP_BUILD: $SKIP_BUILD"
+	echo "SKIP_LOAD: $SKIP_LOAD"
+	[ ! -z $SKIP_LOAD ] || load_rails_with_groups "$INCLUDES"
+fi
