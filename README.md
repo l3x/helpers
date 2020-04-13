@@ -311,7 +311,7 @@ sys	0m1.077s
 
 ```
 
-#### Use script to bundle gems and RAILS_GROUP when loading enviornment
+#### Use script to bundle gems and RAILS_GROUP when loading Rails environment
 
 When running `build-and-load-gem-groups -i` it takes **17.326s** to load the Rails enviroment.
 
@@ -350,4 +350,20 @@ Rails.groups: [:default, "development"]
 real	0m17.326s
 user	0m16.309s
 sys	0m0.947s
+```
+
+#### Display groups from Gemfile
+
+This script makes use of Rails groups to bundle and load Rails environments.
+
+This will show you the groups you currently have defined in your Gemfile:
+
+``` 
+$ script/build-and-load-gem-groups -d
+app
+assets
+ci
+deploy
+development
+test
 ```
