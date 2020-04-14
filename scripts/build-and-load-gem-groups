@@ -198,7 +198,7 @@ function load_path()
 		load_path_script_path=$(mktemp)
 		echo "#!/usr/bin/env ruby
 require File.expand_path('$(pwd)/config/environment.rb',  __FILE__)
-puts \"$LOAD_PATH\"
+puts \$LOAD_PATH
 " > $load_path_script_path
 		chmod +x $load_path_script_path
 		echo "Created $load_path_script_path"
