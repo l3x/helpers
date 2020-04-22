@@ -1,0 +1,254 @@
+#!/bin/bash -e
+
+root_dir=$HOME/REPOs/git-changes
+CURRENT_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+current_dir_name=$(basename "$PWD")
+timestamp=$(date +%Y%m%d-%H%M%S)
+TO_DIR="${root_dir}/${current_dir_name}/${CURRENT_BRANCH_NAME}_${timestamp}"
+COMMIT_CNTR=0 
+APP_CONFIG_FILE=".$(basename $0)"
+
+Usage() 
+{
+	info="
+Usage: $(basename $0) [-b <BACKUP_FROM_COMMIT_NO>] [-c] [-d] [-r <UPSTREAM_BRANCH>] [-n]
+
+Options:
+	-d or --display-changes      Displays all commits since starting this branch (ends with previous commit hash)
+	-b or --backup-from-commit   Backup new/changed files in current branch (pass previous commit hash from -d)
+	-c or --compare-with-backup  Compare changed files in workspace with those in backup directory
+	-r or --rollback-changes     Remove commits after BACKUP_FROM_COMMIT_NO (keeps your changes in your workspace)
+	-n or --copy-back-new-files  Restore changed (new) files that you previously backed up
+	
+Examples:
+$(basename $0) -d
+$(basename $0) -b 2ed491b41b
+$(basename $0) -c 
+$(basename $0) -r 
+$(basename $0) -n
+$(basename $0) -b 2ed491b41b -r
+$(basename $0) -b 2ed491b41b -r -n
+
+Notes:
+* For details, run one of the following commands:
+git log --pretty=one-line
+git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+git log --pretty=format:\"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]\" --decorate --numstat
+git log --graph --pretty=format:'%C(yellow)%h%Creset%C(cyan)%C(bold)%d%Creset %C(cyan)(%cr)%Creset %C(green)%ce%Creset %s'
+"
+	echo "$info"
+}
+
+function debug
+{
+	[ "$DEBUG" == "true" ] && echo "$1" >&2 || true
+}
+
+backup_from_commit=false
+Parse_arguments() 
+{
+	debug "++ $(basename $0) $@"
+	
+	while [ $# -gt 0 ]; do
+		case $1 in
+			--help)
+				HELPINFO=true;;			
+			--compare-with-backup | -c)
+				COMPARE_WITH_BACKUP=true;;
+			--display-changes | -d)
+				DISPLAY_CHANGES=true;;
+			--backup-from-commit | -b)
+				backup_from_commit=true
+                shift || true
+				BACKUP_FROM_COMMIT_NO="$@";;				
+			--rollback-changes | -r)
+				rollback_changes=true
+                shift || true
+				UPSTREAM_BRANCH="$@";;				
+			--copy-back-new-files | -n)
+				COPY_BACK_NEW_FILES=true;;
+		esac
+		shift || true
+	done
+}
+BACKUP_FROM_COMMIT_NO=''
+DISPLAY_CHANGES=false
+Parse_arguments $@
+
+if [ "${backup_from_commit}" == true ] && [ "${BACKUP_FROM_COMMIT_NO}" == "" ]; then
+	echo "Passed --backup-from-commit, but missing required parameter: BACKUP_FROM_COMMIT_NO"
+	Usage
+fi
+
+if [ "${rollback_changes}" == true ] && [ "${UPSTREAM_BRANCH}" == "" ]; then
+	echo "Passed --rollback-changes, but missing required parameter: UPSTREAM_BRANCH"
+	Usage
+fi
+
+if [ "${HELPINFO}" == true ]; then
+    Usage
+fi
+
+function check_args()
+{
+	{ set +x; } 2>/dev/null
+	FROM_BRANCH=
+	TO_BRANCH=
+	if [ "" == "" ] ||  [ "" == "" ]; then
+		echo "Usage:   ebin <FROM_BRANCH> <TO_BRANCH>"
+		echo "Example: ebin master-next2 BIO-22379-startup-speed-lnx"
+		exit 2
+	fi
+}
+#check_args "";echo "✓"
+
+# HELPERS
+function most_recent_backup_dir()
+{
+	if [ ! -f $APP_CONFIG_FILE ]; then
+		echo "app_config_file ($APP_CONFIG_FILE) not found. Running this will create it:  $(basename $0) --backup-from-commit"
+		exit 2
+	fi
+	to_dir=$(grep 'to_dir' $APP_CONFIG_FILE) || true
+	if [ "$to_dir" == "" ]; then
+		echo "Missing to_dir key in APP_CONFIG_FILE ($APP_CONFIG_FILE)"
+		return 1
+	fi
+	to_dir="$(echo $to_dir | awk '{print $2}')"
+	if [ "$to_dir" == "" ]; then
+		echo "Missing to_dir value in APP_CONFIG_FILE ($APP_CONFIG_FILE)"
+		return 1
+	fi	
+	echo "${to_dir}"
+}
+
+
+function get_previous_commit_hash()
+{
+	git_username=$(git config user.name)
+	username_substr=" ${git_username}: "
+	ret_commit_hash=''
+	echo ''
+	i=0
+	while read line
+	do
+		if [[ "$line" == *"${username_substr}"* ]]; then
+			i=$((i+1))
+			echo "$line"
+			this_commit_hash=$(echo "$line" | awk '{print $2}')
+			while read line2
+			do
+				echo "    $line2"
+			done < <(git diff-tree --no-commit-id --name-only -r $this_commit_hash)
+			echo
+		else
+			ret_commit_hash=$(echo "$line" | awk '{print $2}')
+			break
+		fi
+	done < <(git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative)	
+	echo "number_of_commits_to_rollback: $i"
+	echo "$ret_commit_hash"
+}
+
+function backup_changed_files()
+{
+	previous_commit_hash="$(get_previous_commit_hash | tail -n 1)"
+	if [ $(grep -Eq '^[0-9]||[a-f]{10}$' <<< "$previous_commit_hash") ]; then
+		echo "Expected previous_commit_hash ($previous_commit_hash) to be a 10 character hex string."
+		exit 2
+	fi
+	#echo "Commits and files to save from current branch ($CURRENT_BRANCH_NAME)...and the commit hash just before we start backing up. See $ git log --pretty=oneline"
+	mkdir -p $TO_DIR || true
+	echo "to_dir: $TO_DIR" > "$APP_CONFIG_FILE"
+	changed_files=$({ git diff --name-only $previous_commit_hash HEAD; } & { git diff --name-only --cached; } | sort | uniq)
+
+	while read line
+	do
+		echo "> $line"
+		if [[ "$line" == *"/"* ]]; then
+			source_dir="$(dirname $line)"
+			mkdir -p "$TO_DIR/$source_dir"
+			cp "$line" "$TO_DIR/$source_dir"
+		else
+			cp "$line" $TO_DIR
+		fi
+	done < <(echo "$changed_files") 
+
+	echo "Copied files changed in this branch ($CURRENT_BRANCH_NAME) to $TO_DIR"
+}
+
+function rollback_commits()
+{
+	number_of_commits_to_rollback=$(get_previous_commit_hash | grep number_of_commits_to_rollback | awk '{print $2}')
+	
+	echo "Run this: git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative"
+	echo "If you want to rollback ${number_of_commits_to_rollback} commits, press Enter else CTRL+C to abort."
+	read x
+	
+	# Perform rollbacks
+	#for (( i=1; i<=$number_of_commits_to_rollback; i++ ))
+	#do
+	#	git reset --soft HEAD^
+	#done	
+	
+	# Note: the "--soft" will not change any files--it only discards commits
+	git reset --soft HEAD~$number_of_commits_to_rollback
+	git stash
+	git reset --hard $UPSTREAM_BRANCH
+	git stash apply
+	git status
+	msg="
+	<= Add and commit your changes and then run $ git push -f origin $CURRENT_BRANCH_NAME
+	"; echo "$msg"
+}
+
+function compare_existing_files_with_backup_dir()
+{
+	mrbd="$(most_recent_backup_dir)"
+	while read line
+	do
+		after_mrbd=${line#"$mrbd/"}
+		if [ ! -e $after_mrbd ]; then
+			echo "$line does not exist in your workspace"
+		else
+			set -x
+			diff $line  $after_mrbd || true
+			{ set +x; } 2>/dev/null
+		fi
+	done < <(find $mrbd -type f) 
+}
+
+
+
+# This should not be necessary (assuming we use "git reset --soft")
+function restore_new_files()
+{
+	most_recent_backup_dir = "$(most_recent_backup_dir)"
+	if [ ! -e $most_recent_backup_dir ]; then
+		echo "most_recent_backup_dir ($most_recent_backup_dir) does not exist. Running this will create it:  $(basname $0) --backup-from-commit"
+		exit 2
+	fi
+	set -x
+	cp -r ${most_recent_backup_dir}/* .
+	{ set +x; } 2>/dev/null
+}
+
+# MAIN
+if [ "$DISPLAY_CHANGES" == true ]; then
+	get_previous_commit_hash
+elif [ "$COMPARE_WITH_BACKUP" == true ]; then
+	compare_existing_files_with_backup_dir
+else
+	if [ "$BACKUP_FROM_COMMIT_NO" != "" ]; then
+		backup_changed_files
+	fi
+	if [ "$UPSTREAM_BRANCH" != "" ]; then
+		rollback_commits
+	fi
+	if [ "$COPY_BACK_NEW_FILES" == true ]; then
+		restore_new_files
+	fi
+fi
+
+
+

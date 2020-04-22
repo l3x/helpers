@@ -5,6 +5,11 @@
 # Author:   Lex Sheehan
 # License:  MIT
 
+# Set default values
+ALL_GROUPS= # Set to bypass group lookup in Gemfile
+VENDOR_PATH="$(if [ "$VENDOR_PATH" != "" ]; then echo $VENDOR_PATH; else echo './bin'; fi)"
+CONFIG_DIR="$(if [ "$CONFIG_DIR" != "" ]; then echo $CONFIG_DIR; else echo '/tmp'; fi)"
+USE_LAST_LOCK_FILE="$(if [ "$USE_LAST_LOCK_FILE" != "" ]; then echo $USE_LAST_LOCK_FILE; else echo "false"; fi)"
 RAILS_ENV="$(if [ "$RAILS_ENV" != "" ]; then echo $RAILS_ENV; else echo 'development'; fi)"
 LOAD_ENV_PATH="$(if [ "$LOAD_ENV_PATH" != "" ]; then echo $LOAD_ENV_PATH; else echo './script/load_environment.rb'; fi)"
 
@@ -14,19 +19,26 @@ Usage()
 Usage: $(basename $0) [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r] | [-t]
 
 Options:
-	-i or --include:		[Optional] groups to include in build and load
-	-e or --exclude:		[Optional] groups to exclude in build and load
-	-a or --all-groups:		[Optional] include all groups in build and load
-	-d or --display-groups:	[Optional] display all groups in Gemfile
-	-l or --load-path       [Optional] display Ruby load path
-	-r or --reset           [Optional] resets bundler and gemfile settings
-	-t or --test-load-time  [Optional] display how long it takes to load
-
+	-i or --include            [Optional] groups to include in build and load
+	-e or --exclude            [Optional] groups to exclude in build and load
+	-a or --all-groups         [Optional] include all groups in build and load
+	-d or --display-groups     [Optional] display all groups in Gemfile
+	-r or --clear-all          [Optional] clear bundler and gemfile settings and remove vendor dir
+	-t or --test-load-time     [Optional] display how long it takes to load
+	-l or --show-load-path     [Optional] display Ruby load path
+	-c or --show-bundle-config [Optional] display bundle config file contents
+	-s or --save-config        [Optional] currently only saves Gemile.lock file
+	-g or --last-gem-lock-file [Optional] display path of last saved Gemile.lock file
+	
+	
 Examples:
-$(basename $0) -i 
+$(basename $0) -i app development
+$(basename $0) -i app test
+$(basename $0) -i app production
 $(basename $0) -i assets
-$(basename $0) -e production ci deploy
-SKIP_BUILD=true $(basename $0) -i development
+$(basename $0) -i deploy
+RAILS_GROUPS=development $(basename $0) -t
+SKIP_BUILD=true build-and-load-gem-groups -i development
 SKIP_LOAD=true $(basename $0) -i production
 LOAD_ENV_PATH=./scripts/load-env.rb  $(basename $0) -i development
 
@@ -47,7 +59,12 @@ Notes:
   That is expected. In order to build a development package in production you must run:
   $ build-and-load-gem-groups -i development app assets production
 * Just because you can do something, does not mean you _should_ do it.
-
+* If you see an error like the following, then install the test group passing '-i test'
+  'cannot load such file -- shoulda/matchers'
+* If you see an error like the following after an --i operation, then install it's group
+  'cannot load such file -- ruby-hl7'
+  Assming its group is 'app', then run '$(basename $0) -i test app'
+  
 Current environment variable settings:
 SKIP_BUILD=$SKIP_BUILD
 SKIP_LOAD=$SKIP_LOAD
@@ -85,12 +102,20 @@ parse_arguments()
 				EXCLUDES="$@";;
 			--all-groups | -a)
 				INCLUDE_ALL_GROUPS=true;;
+			--all-groups | -a)
+				INCLUDE_ALL_GROUPS=true;;
+			--show-bundle-config | -c)
+				DISPLAY_BUNDLE_CONFIG=true;;
 			--display_all_groups | -d)
 				DISPLAY_ALL_GROUPS=true;;
+			--last-gem-lock-file | -g)
+				LAST_GEM_LOCK_FILE=true;;
 			--load-path | -l)
 				LOAD_PATH=true;;
-			--reset | -r)
-				RESET_ALL=true;;
+			--clear | -r)
+				CLEAR_ALL=true;;
+			--save-config | -s)
+				SAVE_CONFIG=true;;
 			--test-load-time | -t)
 				TEST_LOAD_TIME=true;;
 		esac
@@ -104,8 +129,11 @@ if [ "${INCLUDES}" == "" ] && \
 	[ "${EXCLUDES}" == "" ] && \
 	[ "${INCLUDE_ALL_GROUPS}" == "" ] && \
 	[ "${DISPLAY_ALL_GROUPS}" == "" ] && \
+	[ "${DISPLAY_BUNDLE_CONFIG}" == "" ] && \
+	[ "${LAST_GEM_LOCK_FILE}" == "" ] && \
 	[ "${LOAD_PATH}" == "" ] && \
-	[ "${RESET_ALL}" == "" ] && \
+	[ "${CLEAR_ALL}" == "" ] && \
+	[ "${SAVE_CONFIG}" == "" ] && \
 	[ "${TEST_LOAD_TIME}" == "" ] && \
 	[ "${HELPINFO}" == "" ] && \
 	[ "${include_param_passed}" == false ]
@@ -123,11 +151,22 @@ if [ "${HELPINFO}" == "true" ]; then
     Usage
 fi
 
-ALL_GROUPS= #'app assets ci deploy development gui test' # Set to bypass group lookup in Gemfile
+# --- Helpers ---
+function show_bundle_config()
+{
+	if [ ! -e $BUNDLE_CONFIG_PATH ]; then
+		echo "$BUNDLE_CONFIG_PATH does not exit."
+	else
+		cat $BUNDLE_CONFIG_PATH
+	fi
+}
 
 function clear_bundle_groups()
 {
-	[ ! -e ./.bundle/config ] || rm ./.bundle/config || true
+	[ ! -e $BUNDLE_CONFIG_PATH ] || rm $BUNDLE_CONFIG_PATH || true
+	# Remove 
+	[ ! -e ~/.bundle/config ] || rm ~/.bundle/config  || true
+	[ ! -e ~/.bundle/cache ] || rm -rf ~/.bundle/cache  || true
 }
 
 function delete_gemfile_lock()
@@ -135,11 +174,27 @@ function delete_gemfile_lock()
 	[ -e ./Gemfile.lock ] && rm ./Gemfile.lock || true
 }
 
-function reset_all()
+function clear_all()
 {
 	bundle clean --force || true
 	clear_bundle_groups
 	delete_gemfile_lock
+	rm -rf ./vendor || true
+}
+
+function timestamp()
+{
+	echo "$(date +%Y%m%d-%H%M%S)"
+}
+
+function save_config()
+{
+	if [ ! -e ./Gemfile.lock ]; then
+		echo >&2 './Gemfile.lock not found.'
+		exit 3
+	else
+		cp Gemfile.lock $CONFIG_DIR/"Gemfile.lock_$(timestamp)"
+	fi
 }
 
 function all_groups()
@@ -147,7 +202,7 @@ function all_groups()
 	if [ ! -e Gemfile ]; then
 		echo 'Missing Gemfile!'
 	else
-		if [ "$ALL_GROUPS" != '' ]; then
+		if [ "$ALL_GROUPS" != "" ]; then
 			echo "$ALL_GROUPS" | tr ' ' '\n'
 		else
 			grep -E '^group ' Gemfile | cut -c8-555 | tr ':' ' ' | while read line; do   echo "${line/ do/}"; done | tr ',' '\n' | while read line; do echo "${line}"; done | sort | uniq
@@ -193,7 +248,7 @@ puts \"Rails.groups: #{Rails.groups}\"
 	fi
 }
 
-function load_path()
+function show_load_path()
 {
 		load_path_script_path=$(mktemp)
 		echo "#!/usr/bin/env ruby
@@ -206,13 +261,17 @@ puts \$LOAD_PATH
 
 }
 
+function last_gemfile_lock_path()
+{
+	find $CONFIG_DIR -name "Gemfile.lock*" -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n1 | awk '{print $2}'
+}
+
 # BUILD
 function build_all()
 {
 	if [ "$SKIP_BUILD" != "true" ]; then
 		echo ">> Build All"
-		reset_all
-		bundle install
+		bundle install --jobs=$(number_of_cpus) --deployment --binstubs=$VENDOR_PATH
 	fi
 }
 
@@ -220,12 +279,15 @@ function build_without()
 {
 	if [ "$SKIP_BUILD" != "true" ]; then
 		groups_to_exclude="$1"
-		echo ">> Build groups_to_exclude=$groups_to_exclude"
-		reset_all
+		if [ "$USE_LAST_LOCK_FILE" == "true" ]; then
+			[ -e ./Gemfile.lock ] || cp "$(last_gemfile_lock_path)" "Gemfile.lock_$(timestamp)"
+		else 
+			clear_bundle_groups # <= Cleanup from bug in Bundler. Remove cruft in $BUNDLE_CONFIG_PATH
+		fi
 		if [ "$groups_to_exclude" == "" ]; then
-			bundle install
+			bundle install --jobs=$(number_of_cpus) --deployment --binstubs=$VENDOR_PATH
 		else
-			bundle install --without $groups_to_exclude
+			bundle install --jobs=$(number_of_cpus) --deployment --binstubs=$VENDOR_PATH --without "$groups_to_exclude"
 		fi
 	fi
 }
@@ -254,19 +316,38 @@ function test_load_time()
 	fi
 }
 
+function number_of_cpus()
+{
+	if command -v lscpu >/dev/null 2>&1; then
+		echo $(lscpu | grep -E '^CPU\(s\):' | awk '{print $2}')
+	else
+		echo >&2 "I require lscpu but it's not installed.  Defaulting to 4 cores."
+		echo 4
+	fi
+}
+
 # MAIN
 
 unset BUNDLE_INCLUDES
+BUNDLE_CONFIG_PATH=./.bundle/config
 if [ "$DISPLAY_ALL_GROUPS" == true ]; then
 	all_groups
+elif [ "$DISPLAY_BUNDLE_CONFIG" == true ]; then
+	show_bundle_config
+elif [ "$LAST_GEM_LOCK_FILE" == true ]; then
+	echo $(last_gemfile_lock_path)
 elif [ "$LOAD_PATH" == true ]; then
-	load_path
-elif [ "$RESET_ALL" == true ]; then
-	reset_all
+	show_load_path
+elif [ "$CLEAR_ALL" == true ]; then
+	clear_all
+elif [ "$SAVE_CONFIG" == true ]; then
+	save_config
 elif [ "$TEST_LOAD_TIME" == true ]; then
 	test_load_time
 else
 	# Build
+	clear_all
+	bundle install # <= Creates Gemfile.lock filed required by --deployment below
 	if [ "$INCLUDE_ALL_GROUPS" == true ]; then
 		INCLUDES=$(all_groups | tr '\n' ' ')
 		echo "INCLUDES: $INCLUDES"
@@ -287,5 +368,8 @@ else
 	# Load
 	echo "SKIP_BUILD: $SKIP_BUILD"
 	echo "SKIP_LOAD: $SKIP_LOAD"
+	if [ "$(grep 'Bundler.setup(\*Rails.groups())' config/application.rb | tr -d '[:space:]')" == "Bundler.setup(*Rails.groups())" ]; then
+		bundle install --standalone
+	fi
 	[ ! -z $SKIP_LOAD ] || load_rails_with_groups "$INCLUDES"
 fi
