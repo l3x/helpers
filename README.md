@@ -231,20 +231,28 @@ end
 ```
 
 ``` 
-Usage: build-and-load-gem-groups [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r]
+Usage: build-and-load-gem-groups [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r] | [-t]
 
 Options:
-	-i or --include:		[Optional] groups to include in build and load
-	-e or --exclude:		[Optional] groups to exclude in build and load
-	-a or --all-groups:		[Optional] include all groups in build and load
-	-d or --display-groups:	[Optional] display all groups in Gemfile
-	-r or --reset           [Optional] resets bundler and gemfile settings
-	-l or --load-path       [Optional] display Ruby load path
-
+	-i or --include             Groups to include in build and load
+	-e or --exclude             Groups to exclude in build and load
+	-a or --all-groups          Include all groups in build and load
+	-d or --display-groups      Display all groups in Gemfile
+	-r or --clear-all           Clear bundler and gemfile settings and remove vendor dir
+	-t or --test-load-time      Display how long it takes to load
+	-l or --show-load-path      Display Ruby load path
+	-c or --show-bundle-config  Display bundle config file contents
+	-s or --save-config         Currently only saves Gemile.lock file
+	-g or --last-gem-lock-file  Display path of last saved Gemile.lock file
+	
+	
 Examples:
-build-and-load-gem-groups -i 
+build-and-load-gem-groups -i app development
+build-and-load-gem-groups -i app test
+build-and-load-gem-groups -i app production
 build-and-load-gem-groups -i assets
-build-and-load-gem-groups -e production ci deploy
+build-and-load-gem-groups -i deploy
+RAILS_GROUPS=development build-and-load-gem-groups -t
 SKIP_BUILD=true build-and-load-gem-groups -i development
 SKIP_LOAD=true build-and-load-gem-groups -i production
 LOAD_ENV_PATH=./scripts/load-env.rb  build-and-load-gem-groups -i development
@@ -266,6 +274,11 @@ Notes:
   That is expected. In order to build a development package in production you must run:
   $ build-and-load-gem-groups -i development app assets production
 * Just because you can do something, does not mean you _should_ do it.
+* If you see an error like the following, then install the test group passing '-i test'
+  'cannot load such file -- shoulda/matchers'
+* If you see an error like the following after an --i operation, then install it's group
+  'cannot load such file -- ruby-hl7'
+  Assming its group is 'app', then run 'build-and-load-gem-groups -i test app'
 ```
 
 ### Examples
@@ -366,4 +379,56 @@ ci
 deploy
 development
 test
+```
+
+## git-changes
+
+I wrote this script out of shear frustation.
+
+It seems that I have a super power that allows me to find new ways to delete my work with git.
+
+The irony is that git is supposed to help save and version your work, but every now and then after running a git command some of my work gets deleted and it's super frustrating.
+
+Never again!
+
+Before running any git command that can modify any file in my workspace, I run the following
+
+### Show new file changes
+
+`git-changes -d` shows me what files I have modified and added on my feature branch. 
+
+The last line of output will the commit id that I use on the next backup command.
+
+### Save my file changes
+
+`git-changes -b BACKUP_FROM_COMMIT_NO` saves my changes. You can change the default backup directory in 1st line of script:
+
+`root_dir=$HOME/REPOs/git-changes$HOME/REPOs/git-changes`
+
+
+```
+Usage: git-changes [-b <BACKUP_FROM_COMMIT_NO>] [-c] [-d] [-r <UPSTREAM_BRANCH>] [-n]
+
+Options:
+	-d or --display-changes      Displays all commits since starting this branch (ends with previous commit hash)
+	-b or --backup-from-commit   Backup new/changed files in current branch (pass previous commit hash from -d)
+	-c or --compare-with-backup  Compare changed files in workspace with those in backup directory
+	-r or --rollback-changes     Remove commits after BACKUP_FROM_COMMIT_NO (keeps your changes in your workspace)
+	-n or --copy-back-new-files  Restore changed (new) files that you previously backed up
+	
+Examples:
+git-changes -d
+git-changes -b 2ed491b41b
+git-changes -c 
+git-changes -r 
+git-changes -n
+git-changes -b 2ed491b41b -r
+git-changes -b 2ed491b41b -r -n
+
+Notes:
+* For details, run one of the following commands:
+git log --pretty=one-line
+git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+git log --pretty=format:"%C(yellow)%h%Cred%d\ %Creset%s%Cblue\ [%cn]" --decorate --numstat
+git log --graph --pretty=format:'%C(yellow)%h%Creset%C(cyan)%C(bold)%d%Creset %C(cyan)(%cr)%Creset %C(green)%ce%Creset %s'
 ```

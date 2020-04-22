@@ -19,16 +19,16 @@ Usage()
 Usage: $(basename $0) [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r] | [-t]
 
 Options:
-	-i or --include            [Optional] groups to include in build and load
-	-e or --exclude            [Optional] groups to exclude in build and load
-	-a or --all-groups         [Optional] include all groups in build and load
-	-d or --display-groups     [Optional] display all groups in Gemfile
-	-r or --clear-all          [Optional] clear bundler and gemfile settings and remove vendor dir
-	-t or --test-load-time     [Optional] display how long it takes to load
-	-l or --show-load-path     [Optional] display Ruby load path
-	-c or --show-bundle-config [Optional] display bundle config file contents
-	-s or --save-config        [Optional] currently only saves Gemile.lock file
-	-g or --last-gem-lock-file [Optional] display path of last saved Gemile.lock file
+	-i or --include             Groups to include in build and load
+	-e or --exclude             Groups to exclude in build and load
+	-a or --all-groups          Include all groups in build and load
+	-d or --display-groups      Display all groups in Gemfile
+	-r or --clear-all           Clear bundler and gemfile settings and remove vendor dir
+	-t or --test-load-time      Display how long it takes to load
+	-l or --show-load-path      Display Ruby load path
+	-c or --show-bundle-config  Display bundle config file contents
+	-s or --save-config         Currently only saves Gemile.lock file
+	-g or --last-gem-lock-file  Display path of last saved Gemile.lock file
 	
 	
 Examples:
