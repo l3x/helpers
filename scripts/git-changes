@@ -1,4 +1,5 @@
 #!/bin/bash -e
+source ~/bin/helpers
 
 root_dir=$HOME/REPOs/git-changes
 CURRENT_BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
@@ -7,22 +8,23 @@ timestamp=$(date +%Y%m%d-%H%M%S)
 TO_DIR="${root_dir}/${current_dir_name}/${CURRENT_BRANCH_NAME}_${timestamp}"
 COMMIT_CNTR=0 
 APP_CONFIG_FILE=".$(basename $0)"
+DIRS_TO_IGNORE="bin coverage .git .idea personal tmp vendor"
 
 Usage() 
 {
 	info="
-Usage: $(basename $0) [-b <BACKUP_FROM_COMMIT_NO>] [-c] [-d] [-r <UPSTREAM_BRANCH>] [-n]
+Usage: $(basename $0) [-b] [-c] [-d] [-r <UPSTREAM_BRANCH>] [-n]
 
 Options:
 	-d or --display-changes      Displays all commits since starting this branch (ends with previous commit hash)
-	-b or --backup-from-commit   Backup new/changed files in current branch (pass previous commit hash from -d)
+	-b or --backup-changed-files Backup new/changed files in current branch (pass previous commit hash from -d)
 	-c or --compare-with-backup  Compare changed files in workspace with those in backup directory
 	-r or --rollback-changes     Remove commits after BACKUP_FROM_COMMIT_NO (keeps your changes in your workspace)
 	-n or --copy-back-new-files  Restore changed (new) files that you previously backed up
 	
 Examples:
 $(basename $0) -d
-$(basename $0) -b 2ed491b41b
+$(basename $0) -b
 $(basename $0) -c 
 $(basename $0) -r 
 $(basename $0) -n
@@ -44,7 +46,6 @@ function debug
 	[ "$DEBUG" == "true" ] && echo "$1" >&2 || true
 }
 
-backup_from_commit=false
 Parse_arguments() 
 {
 	debug "++ $(basename $0) $@"
@@ -57,10 +58,8 @@ Parse_arguments()
 				COMPARE_WITH_BACKUP=true;;
 			--display-changes | -d)
 				DISPLAY_CHANGES=true;;
-			--backup-from-commit | -b)
-				backup_from_commit=true
-                shift || true
-				BACKUP_FROM_COMMIT_NO="$@";;				
+			--backup-changed-files | -b)
+				BACKUP_CHANGED_FILES=true;;				
 			--rollback-changes | -r)
 				rollback_changes=true
                 shift || true
@@ -71,14 +70,8 @@ Parse_arguments()
 		shift || true
 	done
 }
-BACKUP_FROM_COMMIT_NO=''
 DISPLAY_CHANGES=false
 Parse_arguments $@
-
-if [ "${backup_from_commit}" == true ] && [ "${BACKUP_FROM_COMMIT_NO}" == "" ]; then
-	echo "Passed --backup-from-commit, but missing required parameter: BACKUP_FROM_COMMIT_NO"
-	Usage
-fi
 
 if [ "${rollback_changes}" == true ] && [ "${UPSTREAM_BRANCH}" == "" ]; then
 	echo "Passed --rollback-changes, but missing required parameter: UPSTREAM_BRANCH"
@@ -122,6 +115,20 @@ function most_recent_backup_dir()
 	echo "${to_dir}"
 }
 
+function current_branch_created_at()
+{
+	echo "$(git reflog --date=local ${CURRENT_BRANCH_NAME} | tail -n 1 | cut -d'{' -f2 | cut -d'}' -f1)"
+}
+
+function changed_files()
+{
+	# Get every filename that you changed since you created the current branch
+	timestamp_path=$(mktemp)
+	touch -d "$(current_branch_created_at)" ${timestamp_path}	
+	npc=$(not_path_clause ${DIRS_TO_IGNORE})
+	cmd="find . -newer ${timestamp_path} ${npc} -type f"
+	eval $cmd
+}
 
 function get_previous_commit_hash()
 {
@@ -134,21 +141,24 @@ function get_previous_commit_hash()
 	do
 		if [[ "$line" == *"${username_substr}"* ]]; then
 			i=$((i+1))
-			echo "$line"
+#			echo "$line"
 			this_commit_hash=$(echo "$line" | awk '{print $2}')
-			while read line2
-			do
-				echo "    $line2"
-			done < <(git diff-tree --no-commit-id --name-only -r $this_commit_hash)
-			echo
+#			while read line2
+#			do
+#				echo "    $line2"
+#			done < <(git diff-tree --no-commit-id --name-only -r $this_commit_hash)
+#			echo
 		else
 			ret_commit_hash=$(echo "$line" | awk '{print $2}')
 			break
 		fi
 	done < <(git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative)	
+
+	echo "changed_files: $(changed_files)"
 	echo "number_of_commits_to_rollback: $i"
 	echo "$ret_commit_hash"
 }
+
 
 function backup_changed_files()
 {
@@ -160,7 +170,7 @@ function backup_changed_files()
 	#echo "Commits and files to save from current branch ($CURRENT_BRANCH_NAME)...and the commit hash just before we start backing up. See $ git log --pretty=oneline"
 	mkdir -p $TO_DIR || true
 	echo "to_dir: $TO_DIR" > "$APP_CONFIG_FILE"
-	changed_files=$({ git diff --name-only $previous_commit_hash HEAD; } & { git diff --name-only --cached; } | sort | uniq)
+	#changed_files=$({ git diff --name-only $previous_commit_hash HEAD; } & { git diff --name-only --cached; } | sort | uniq)
 
 	while read line
 	do
@@ -172,7 +182,7 @@ function backup_changed_files()
 		else
 			cp "$line" $TO_DIR
 		fi
-	done < <(echo "$changed_files") 
+	done < <(echo "$(changed_files)") 
 
 	echo "Copied files changed in this branch ($CURRENT_BRANCH_NAME) to $TO_DIR"
 }
@@ -218,8 +228,6 @@ function compare_existing_files_with_backup_dir()
 	done < <(find $mrbd -type f) 
 }
 
-
-
 # This should not be necessary (assuming we use "git reset --soft")
 function restore_new_files()
 {
@@ -234,12 +242,12 @@ function restore_new_files()
 }
 
 # MAIN
-if [ "$DISPLAY_CHANGES" == true ]; then
+if [ $DISPLAY_CHANGES == true ]; then
 	get_previous_commit_hash
 elif [ "$COMPARE_WITH_BACKUP" == true ]; then
 	compare_existing_files_with_backup_dir
 else
-	if [ "$BACKUP_FROM_COMMIT_NO" != "" ]; then
+	if [ "$BACKUP_CHANGED_FILES" == true ]; then
 		backup_changed_files
 	fi
 	if [ "$UPSTREAM_BRANCH" != "" ]; then
