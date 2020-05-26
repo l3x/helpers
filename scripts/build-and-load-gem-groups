@@ -15,7 +15,7 @@ LOAD_ENV_PATH="$(if [ "$LOAD_ENV_PATH" != "" ]; then echo $LOAD_ENV_PATH; else e
 
 Usage() 
 {
-	info="
+	echo "
 Usage: $(basename $0) [-i group names] | [-e group names] | [-a] | [-d] | [-l] | [-r] | [-t]
 
 Options:
@@ -71,8 +71,6 @@ SKIP_LOAD=$SKIP_LOAD
 LOAD_ENV_PATH=$LOAD_ENV_PATH
 RAILS_ENV=$RAILS_ENV
 "
-	echo "$info"
-	exit 2
 }	
 
 restore_opts() 
@@ -139,16 +137,16 @@ if [ "${INCLUDES}" == "" ] && \
 	[ "${include_param_passed}" == false ]
 then
 	echo "You must pass either group names you want to include --OR-- group names you want to exclude."
-	Usage
+	Usage;exit 2
 fi
 
 if [ "${INCLUDES}" != "" ] && [ "${EXCLUDES}" != "" ]; then
 	echo "You must pass either group names you want to include --OR-- group names you want to exclude , but not both."
-	Usage
+	Usage;exit 2
 fi
 
 if [ "${HELPINFO}" == "true" ]; then
-    Usage
+    Usage;exit 0
 fi
 
 # --- Helpers ---

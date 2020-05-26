@@ -12,7 +12,7 @@ DIRS_TO_IGNORE="bin coverage .git .idea personal tmp vendor"
 
 Usage() 
 {
-	info="
+	echo "
 Usage: $(basename $0) [-b] [-c] [-d] [-r <UPSTREAM_BRANCH>] [-n]
 
 Options:
@@ -38,7 +38,6 @@ git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%C
 git log --pretty=format:\"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]\" --decorate --numstat
 git log --graph --pretty=format:'%C(yellow)%h%Creset%C(cyan)%C(bold)%d%Creset %C(cyan)(%cr)%Creset %C(green)%ce%Creset %s'
 "
-	echo "$info"
 }
 
 function debug

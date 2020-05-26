@@ -1,0 +1,71 @@
+#!/bin/bash -e
+
+# Filename: find-rename-recursive
+# Purpose:  Recursively rename files based on find results
+# Author:   Lex Sheehan
+# License:  MIT
+
+Usage() 
+{
+	echo "
+Usage: $(basename $0) <--pattern 123> <--string ABC> <FIND_COMMAND_PARAMETERS>
+
+Options:
+	-p or --pattern: <Required> pattern of characters in file name to search for
+	-s or --string:  <Required> string to replace pattern with when renaming file
+
+Examples:
+$(basename $0) --pattern 123 --string ABC . -type f -name \"*123*\"
+"
+}	
+
+Parse_arguments() 
+{
+	if [ "${DEBUG}" == "true" ]; then
+		echo "++ $(basename $0) $@"
+	fi
+	
+	while [ $# -gt 0 ]; do
+		case $1 in
+			--help)
+				HELPINFO=true;;
+			--pattern | -p)
+				shift
+				PATTERN="$1";;
+			--string | -s)
+				shift
+				STRING="$1";;
+		esac
+		shift
+	done
+}
+Parse_arguments $@
+
+if [ "$#" -lt 5 ] || [ "${PATTERN}" == "" ] || [ "${STRING}" == "" ]; then
+    Usage;exit 2
+fi
+
+if [ "${HELPINFO}" == "true" ]; then
+    Usage;exit 0
+fi
+
+# MAIN
+
+while read line
+do
+	echo "> $line"
+	if [[ "$line" == *"/"* ]]; then
+		source_dir="$(dirname $line)"
+		fname="$(basename $line)"
+		to_fname="${fname//$PATTERN/$STRING}"
+		to_path="$source_dir/${to_fname}"
+		if ! cmp -s "$line" "$to_path"; then
+			mv "$line" "$to_path"
+		fi			
+	fi
+done < <(eval "find $(orig_string="${@:5} ";left_string="${orig_string// \*/ \"*}";echo "${left_string//\* /\*\" }")") 
+
+exit 0
+
+# https://stackoverflow.com/questions/9393607/find-and-replace-filename-recursively-in-a-directory
+# All other answers could work for renaming files as long as no subdirectories have the search string its name
