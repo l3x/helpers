@@ -16,6 +16,7 @@ Options:
 
 Examples:
 $(basename $0) --pattern 123 --string ABC . -type f -name \"*123*\"
+$(basename $0) --pattern '123_' --string '' -- .  -type f -name \"*123*\"
 "
 }	
 
@@ -57,7 +58,11 @@ do
 	if [[ "$line" == *"/"* ]]; then
 		source_dir="$(dirname $line)"
 		fname="$(basename $line)"
-		to_fname="${fname//$PATTERN/$STRING}"
+		if [[ "${STRING/}" == "--" ]]; then
+			to_fname="${fname//$PATTERN/}"
+		else
+			to_fname="${fname//$PATTERN/$STRING}"
+		fi
 		to_path="$source_dir/${to_fname}"
 		if ! cmp -s "$line" "$to_path"; then
 			mv "$line" "$to_path"
