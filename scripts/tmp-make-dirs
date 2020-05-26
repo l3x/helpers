@@ -1,0 +1,35 @@
+#!/bin/bash -e
+
+# Filename: tmp-make-dirs
+# Purpose:  Make sample files and a couple of sample subdirectories
+# Author:   Lex Sheehan
+# License:  MIT
+
+# Notes:
+# Source me!  Run me like this: $ . tmp-make-dirs
+# Created for use with find-rename-recursive script
+
+d=$(mktemp -d)
+pushd $d
+touch 123_a.txt
+touch 123_b.txt
+touch foo_123_c.txt
+touch foo_123bar_123_d.txt
+touch exclude.me
+mkdir u
+touch u/123_a.txt
+touch u/123_b.txt
+touch u/foo_123_c.txt
+touch u/foo_123bar_123_d.txt
+touch u/exclude.me
+mkdir 123_u
+touch 123_u/123_a.txt
+touch 123_u/123_b.txt
+touch 123_u/foo_123_c.txt
+touch 123_u/foo_123bar_123_d.txt
+touch 123_u/exclude.me
+mkdir -p ~/tmp/
+mv $d ~/tmp/$(basename $d)
+cd ~/tmp/$(basename $d)
+tree  --dirsfirst
+echo "Run popd to return to previous directory"

@@ -49,13 +49,18 @@ if [ "${HELPINFO}" == "true" ]; then
     Usage;exit 0
 fi
 
+function debug
+{
+	[ "$DEBUG" == "true" ] && echo "$1" >&2 || true
+}
+
 # MAIN
 # The following could work for renaming files as long as no subdirectories have the search string its name
 # https://stackoverflow.com/questions/9393607/find-and-replace-filename-recursively-in-a-directory
 
 while read line
 do
-	echo "> $line"
+	debug "> $line"
 	if [ -d "$line" ]; then
 		source_dir="$(dirname $line)"
 		mkdir -p "$TO_DIR/$source_dir"
