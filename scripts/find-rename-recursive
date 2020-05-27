@@ -71,7 +71,7 @@ set +f
 while read line
 do
 	debug "> $line"
-	if [ ! -d "$lline"  ] && [[ "$line" == *"/"* ]]; then
+	if [ ! -d "$line"  ] && [[ "$line" == *"/"* ]]; then
 		source_dir="$(dirname $line)"
 		fname="$(basename $line)"
 		if [[ "${STRING/}" == "--" ]]; then
@@ -80,7 +80,7 @@ do
 			to_fname="${fname//$PATTERN/$STRING}"
 		fi
 		to_path="$source_dir/${to_fname}"
-		if ! cmp -s "$line" "$to_path"; then
+		if ! cmp -s "$line" "$to_path" && [ "$line" != "$to_path" ]; then
 			mv "$line" "$to_path"
 		fi			
 	fi
