@@ -21,6 +21,7 @@ $(basename $0) --pattern 123 --string ABC . -type f -name \"*123*\"
 "
 }	
 
+ALL_BUT_NAME_ARG=''
 Parse_arguments() 
 {
 	if [ "${DEBUG}" == "true" ]; then
@@ -40,11 +41,14 @@ Parse_arguments()
 			-name )
 				shift
 				NAME_ARG="$1";;
+			* )
+				ALL_BUT_NAME_ARG="${ALL_BUT_NAME_ARG} $1";;
 		esac
 		shift
 	done
 }
 Parse_arguments $@
+
 
 if [ "$#" -lt 5 ] || [ "${PATTERN}" == "" ] || [ "${STRING}" == "" ]; then
     Usage;exit 2
@@ -60,11 +64,8 @@ function debug
 }
 
 # MAIN
-if [ "$NAME_ARG" == "" ]; then
-	FIND_ARGS="${@:6}"
-else
-	find_args="${@:6}"
-	FIND_ARGS="${find_args//$NAME_ARG/\"$NAME_ARG\"}"
+if [ "$NAME_ARG" != "" ]; then
+	NAME_ARG="-name \"${NAME_ARG}\""
 fi
 
 set +f
@@ -84,9 +85,4 @@ do
 			mv "$line" "$to_path"
 		fi			
 	fi
-done < <(eval "find ${FIND_ARGS}") 
-
-exit 0
-
-# https://stackoverflow.com/questions/9393607/find-and-replace-filename-recursively-in-a-directory
-# All other answers could work for renaming files as long as no subdirectories have the search string its name
+done < <(eval "find ${ALL_BUT_NAME_ARG} ${NAME_ARG}") 

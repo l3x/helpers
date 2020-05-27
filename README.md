@@ -491,6 +491,59 @@ lex@s76 ~/tmp/tmp.kJzgPFEIQe $ tree --dirsfirst
 2 directories, 15 files
 ```
 
+### Example
+Bash string subsitution was not working for -name "*string*" pattern.  Latest commit fixes that.  
+
+``` 
+lex@s76 ~/tmp/tmp.2zam8TNFqX $ . tmp-make-dirs 
+/tmp/tmp.vSrGgFxJX8 ~/tmp/tmp.2zam8TNFqX ~/tmp/tmp.6IOFgCwOyA ~/tmp/tmp.c1mr0dsaqG ~/tmp/tmp.GT29559NuB ~/REPOs/l3x/helpers
+.
+├── 123_u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── 123_a.txt
+├── 123_b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+2 directories, 15 files
+Run popd to return to previous directory
+lex@s76 ~/tmp/tmp.vSrGgFxJX8 $ mv 123_a.txt Max_a.txt
+lex@s76 ~/tmp/tmp.vSrGgFxJX8 $ mv foo_123_c.txt foo_Max_c.txt
+lex@s76 ~/tmp/tmp.vSrGgFxJX8 $ find-rename-recursive --pattern 'Max' --string 'RealBig' -- . -type f -name "*Max*"
+lex@s76 ~/tmp/tmp.vSrGgFxJX8 $ tree --dirsfirst
+.
+├── 123_u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── 123_b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+├── foo_RealBig_c.txt
+└── RealBig_a.txt
+
+2 directories, 15 files
+```
+
 ### All Other Solutions Break
 
 All other solutions thus far either don't work for me and/or delete files with the sample I tried.
