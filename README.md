@@ -441,8 +441,27 @@ This script was inspired from https://stackoverflow.com/questions/9393607/find-a
 
 ### Begin with these files in this directory structure
 ``` 
-$ . tmp-make-dirs
-$ ~/tmp/tmp.i9st1ZcHIn $ tree --dirsfirst
+lex@s76 ~ $ . tmp-make-dirs
+lex@s76 ~/tmp/tmp.KWEdLcfN3Q $ tree --dirsfirst
+.
+├── 123_u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── 123_a.txt
+├── 123_b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+ ~/tmp/tmp.KWEdLcfN3Q $ tree --dirsfirst
 .
 ├── 123_u
 │   ├── 123_a.txt
@@ -462,7 +481,6 @@ $ ~/tmp/tmp.i9st1ZcHIn $ tree --dirsfirst
 ├── foo_123bar_123_d.txt
 └── foo_123_c.txt
 
-2 directories, 15 files
 ```
 Now that files are in place, run the following command to recursively replace all file names that begin with '123_' with the same file name less the '123_'. 
 
