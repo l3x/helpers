@@ -432,3 +432,152 @@ git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%C
 git log --pretty=format:"%C(yellow)%h%Cred%d\ %Creset%s%Cblue\ [%cn]" --decorate --numstat
 git log --graph --pretty=format:'%C(yellow)%h%Creset%C(cyan)%C(bold)%d%Creset %C(cyan)(%cr)%Creset %C(green)%ce%Creset %s'
 ```
+
+
+## find-rename-recursive
+
+This script was inspired from https://stackoverflow.com/questions/9393607/find-and-replace-filename-recursively-in-a-directory
+
+
+### Begin with these files in this directory structure
+``` 
+$ . tmp-make-dirs
+$ ~/tmp/tmp.i9st1ZcHIn $ tree --dirsfirst
+.
+├── 123_u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── 123_a.txt
+├── 123_b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+2 directories, 15 files
+```
+Now that files are in place, run the following command to recursively replace all file names that begin with '123_' with the same file name less the '123_'. 
+
+The '--' separates the command options from the positional arguments.  The positional arguments are the arguments that you'd pass to a typical find command.
+
+```
+lex@s76 ~/tmp/tmp.kJzgPFEIQe $ find-rename-recursive --pattern '123_' --string '' -- . -type f -name "123_*"
+lex@s76 ~/tmp/tmp.kJzgPFEIQe $ tree --dirsfirst
+.
+├── 123_u
+│   ├── a.txt
+│   ├── b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── a.txt
+│   ├── b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── a.txt
+├── b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+2 directories, 15 files
+```
+
+### All Other Solutions Break
+
+All other solutions thus far either don't work for me and/or delete files with the sample I tried.
+
+
+#### Failure 1
+This solution just does not work:
+```
+lex@s76 ~/tmp/tmp.i9st1ZcHIn $ find -name "123*.txt" -exec rename 's/^123_//' {} ";" 
+lex@s76 ~/tmp/tmp.i9st1ZcHIn $ tree --dirsfirst
+.
+├── 123_u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── 123_a.txt
+├── 123_b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+2 directories, 15 files
+```
+
+#### Failure 2
+This solution does not work recursively:
+```
+lex@s76 ~/tmp/tmp.Zg0G3AVCI9 $ rename 's/^123_//' *.txt
+lex@s76 ~/tmp/tmp.Zg0G3AVCI9 $ tree --dirsfirst
+.
+├── 123_u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── 123_a.txt
+│   ├── 123_b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── a.txt
+├── b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+```
+
+
+#### Failure 3
+This solution works recursively when dirname does not include pattern, but DELETES FILES!
+```
+lex@s76 ~/tmp/tmp.xdK0oKW19B $ find . -name '123_*.txt'|awk '{print "mv "$0" "gensub(/\/123_(.*\.txt)$/,"/\\1","g");}'|sh
+lex@s76 ~/tmp/tmp.xdK0oKW19B $ tree --dirsfirst
+.
+├── 123_u
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── a.txt
+│   ├── b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── a.txt
+├── b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+2 directories, 13 files
+lex@s76 ~/tmp/tmp.xdK0oKW19B $ # <= Is recursive when dirname does not include pattern, but DELETES FILES!
+```
+
+# Notes
+
+There are some scripts that don't have info in this README.md file.

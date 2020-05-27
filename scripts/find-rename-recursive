@@ -66,7 +66,6 @@ else
 	find_args="${@:6}"
 	FIND_ARGS="${find_args//$NAME_ARG/\"$NAME_ARG\"}"
 fi
-echo "FIND_ARGS: $FIND_ARGS"
 
 set +f
 while read line
