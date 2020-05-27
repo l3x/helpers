@@ -495,8 +495,33 @@ lex@s76 ~/tmp/tmp.kJzgPFEIQe $ tree --dirsfirst
 
 All other solutions thus far either don't work for me and/or delete files with the sample I tried.
 
-
 #### Failure 1
+This solution deletes files!
+```
+lex@s76 ~/tmp/tmp.erUp1wWiSZ $ find . -name '123*.txt' -type f -exec bash -c 'mv "$1" "${1/\/123_//}"' -- {} \;
+lex@s76 ~/tmp/tmp.erUp1wWiSZ $ tree --dirsfirst
+.
+├── 123_u
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── u
+│   ├── a.txt
+│   ├── b.txt
+│   ├── exclude.me
+│   ├── foo_123bar_123_d.txt
+│   └── foo_123_c.txt
+├── a.txt
+├── b.txt
+├── exclude.me
+├── foo_123bar_123_d.txt
+└── foo_123_c.txt
+
+2 directories, 13 files
+```
+
+
+#### Failure 2
 This solution just does not work:
 ```
 lex@s76 ~/tmp/tmp.i9st1ZcHIn $ find -name "123*.txt" -exec rename 's/^123_//' {} ";" 
@@ -523,7 +548,7 @@ lex@s76 ~/tmp/tmp.i9st1ZcHIn $ tree --dirsfirst
 2 directories, 15 files
 ```
 
-#### Failure 2
+#### Failure 3
 This solution does not work recursively:
 ```
 lex@s76 ~/tmp/tmp.Zg0G3AVCI9 $ rename 's/^123_//' *.txt
@@ -549,8 +574,7 @@ lex@s76 ~/tmp/tmp.Zg0G3AVCI9 $ tree --dirsfirst
 
 ```
 
-
-#### Failure 3
+#### Failure 4
 This solution works recursively when dirname does not include pattern, but DELETES FILES!
 ```
 lex@s76 ~/tmp/tmp.xdK0oKW19B $ find . -name '123_*.txt'|awk '{print "mv "$0" "gensub(/\/123_(.*\.txt)$/,"/\\1","g");}'|sh
